@@ -27,7 +27,7 @@ def main():
     val_loader = DataLoader(val_iterable, batch_size=None)
 
     ntokens = len(vocab.stoi)
-    model = Transformer_Decoder(ntoken=ntokens, ninp=20, nhead=2, nhid=20, nlayers=2).to(device)
+    model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)

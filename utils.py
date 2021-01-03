@@ -6,6 +6,11 @@ import torch
 def get_args():
     parser = ArgumentParser()
 
+    parser.add_argument('--ninp', type=int, default=100)
+    parser.add_argument('--nhead', type=int, default=2)
+    parser.add_argument('--nhid', type=int, default=200)
+    parser.add_argument('--nlayers', type=int, default=2)
+
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--sequence_length', type=int, default=35)
