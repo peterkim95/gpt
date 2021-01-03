@@ -58,7 +58,7 @@ def main():
             optimizer.step()
 
             total_loss += loss.item()
-            log_interval = 10
+            log_interval = args.log_interval
             if i % log_interval == 0 and i > 0:
                 cur_loss = total_loss / log_interval
                 elapsed = time.time() - train_start_time

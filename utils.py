@@ -14,6 +14,7 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--sequence_length', type=int, default=35)
+    parser.add_argument('--log_interval', type=int, default=10)
     parser.add_argument('--lr', type=float, default=5.0)
 
     args = parser.parse_args()
