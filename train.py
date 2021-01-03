@@ -47,6 +47,7 @@ def main():
         train_start_time = time.time()
         src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
         for i, (data, targets) in enumerate(train_loader):
+            data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             if data.size(0) != args.sequence_length:
                 src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
@@ -80,6 +81,7 @@ def main():
         src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
         with torch.no_grad():
             for i, (data, targets) in enumerate(val_loader):
+                data, targets = data.to(device), targets.to(device)
                 if data.size(0) != args.sequence_length:
                     src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
                 output = model(data, src_mask)
