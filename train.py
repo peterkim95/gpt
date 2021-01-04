@@ -34,7 +34,7 @@ def main():
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.95)
 
     best_val_loss = float("inf")
-    epochs = 3 # The number of epochs
+    epochs = args.epochs # The number of epochs
     best_model = None
 
     for epoch in range(1, epochs + 1):
