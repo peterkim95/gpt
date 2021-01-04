@@ -1,13 +1,15 @@
 import time
 import math
 
+import numpy as np
 import torch
 import torch.nn as nn
-from datasets import load_dataset
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from datasets import load_dataset
 
 from model import Transformer_Decoder
-from utils import load_vocab, get_args, save_checkpoint
+from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
 
 def main():
@@ -33,6 +35,9 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.95)
 
+    # Init tensorboard writer
+    writer = SummaryWriter()
+
     best_val_loss = float("inf")
     epochs = args.epochs # The number of epochs
     best_model = None
@@ -41,12 +46,12 @@ def main():
         epoch_start_time = time.time()
 
         # train
-        model.train()
+        # model.train()
         total_loss = 0.
-        nbatches = 0
         train_start_time = time.time()
         src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
         for i, (data, targets) in enumerate(train_loader):
+            model.train()
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             if data.size(0) != args.sequence_length:
@@ -61,45 +66,62 @@ def main():
             log_interval = args.log_interval
             if i % log_interval == 0 and i > 0:
                 cur_loss = total_loss / log_interval
+                cur_ppl = math.exp(cur_loss)
                 elapsed = time.time() - train_start_time
                 # TODO: use nbatches here if known
-                print('| epoch {:3d} | {:5d}/Unknown batches | '
+                print('| epoch {:3d} | {:5d}/Unk batches | '
                       'lr {:02.2f} | ms/batch {:5.2f} | '
                       'loss {:5.2f} | ppl {:8.2f}'.format(
                     epoch, i, scheduler.get_lr()[0],
                     elapsed * 1000 / log_interval,
-                    cur_loss, math.exp(cur_loss)))
-                total_loss = 0
+                    cur_loss, cur_ppl))
+                total_loss = 0.
                 train_start_time = time.time()
 
-            nbatches = i + 1
 
-        # validate
-        model.eval() # Turn on the evaluation mode
-        total_loss = 0.
-        nbatches = 0
-        src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
-        with torch.no_grad():
-            for i, (data, targets) in enumerate(val_loader):
-                data, targets = data.to(device), targets.to(device)
-                if data.size(0) != args.sequence_length:
-                    src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
-                output = model(data, src_mask)
-                output_flat = output.view(-1, ntokens)
-                total_loss += len(data) * criterion(output_flat, targets).item()
-                nbatches = i + 1
-        val_loss = total_loss / (nbatches - 1) # TODO: why minus 1?
-        print('-' * 89)
-        print('| end of epoch {:3d} | time: {:5.2f}s | val loss {:5.2f} | '
-              'val ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time), val_loss, math.exp(val_loss)))
-        print('-' * 89)
+                # validate
+                model.eval() # Turn on the evaluation mode
+                total_loss = 0.
+                src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
+                with torch.no_grad():
+                    for j, (data, targets) in enumerate(val_loader):
+                        data, targets = data.to(device), targets.to(device)
+                        if data.size(0) != args.sequence_length:
+                            src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
+                        output = model(data, src_mask)
+                        # total_loss += len(data) * criterion(output.view(-1, ntokens), targets).item()
+                        loss = criterion(output.view(-1, ntokens), targets)
+                        total_loss += loss.item()
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_model = model
-            save_checkpoint(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}.pt')
+                        if j + 1 == args.validation_steps:
+                            break
+
+                val_loss = total_loss / args.validation_steps
+                val_ppl = math.exp(val_loss)
+                print('-' * 89)
+                # print('| end of epoch {:3d} | time: {:5.2f}s | val loss {:5.2f} | '
+                print('| epoch {:3d} | elapsed time: {:5.2f}s | val loss {:5.2f} | '
+                      'val ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time), val_loss, val_ppl))
+                print('-' * 89)
+
+                total_loss = 0.
+
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_model = model
+                    torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}.pt')
+
+                writer.add_scalar('Loss/train', cur_loss, i)
+                writer.add_scalar('Perplexity/train', cur_ppl, i)
+                writer.add_scalar('Loss/val', val_loss, i)
+                writer.add_scalar('Perplexity/val', val_ppl, i)
 
         scheduler.step()
+
+    print('training done')
+
+    writer.flush()
+    writer.close()
 
 
 if __name__ == "__main__":
