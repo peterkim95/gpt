@@ -91,8 +91,7 @@ def main():
                             src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
                         output = model(data, src_mask)
                         loss = criterion(output.view(-1, ntokens), targets)
-                        # total_loss += loss.item()
-                        total_loss += len(data) * criterion(output.view(-1, ntokens), targets).item()
+                        total_loss += len(data) * loss.item()
 
                         if j + 1 == args.validation_steps:
                             break
