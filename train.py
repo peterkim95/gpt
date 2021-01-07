@@ -22,13 +22,14 @@ def main():
     print('train val split done')
 
     vocab = load_vocab('bookcorpus-vocab.pkl')
+    ntokens = len(vocab.stoi)
+    print(f'{ntokens} tokens in vocab')
 
     train_iterable = BookCorpusIterableDataset(train_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
     train_loader = DataLoader(train_iterable, batch_size=None)
     val_iterable = BookCorpusIterableDataset(val_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
     val_loader = DataLoader(val_iterable, batch_size=None)
 
-    ntokens = len(vocab.stoi)
     model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -89,9 +90,9 @@ def main():
                         if data.size(0) != args.sequence_length:
                             src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
                         output = model(data, src_mask)
-                        # total_loss += len(data) * criterion(output.view(-1, ntokens), targets).item()
                         loss = criterion(output.view(-1, ntokens), targets)
-                        total_loss += loss.item()
+                        # total_loss += loss.item()
+                        total_loss += len(data) * criterion(output.view(-1, ntokens), targets).item()
 
                         if j + 1 == args.validation_steps:
                             break
