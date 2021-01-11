@@ -10,6 +10,7 @@ class Transformer_Decoder(nn.Module):
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.1):
         super(Transformer_Decoder, self).__init__()
         self.model_type = 'Transformer-Decoder (T-D)'
+        self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
         decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers)
@@ -28,10 +29,18 @@ class Transformer_Decoder(nn.Module):
         initrange = 0.1
         self.embedding_encoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, src, src_mask):
+    def forward(self, src, has_mask=True):
+        if has_mask:
+            device = src.device
+            if self.src_mask is None or self.src_mask.size(0) != len(src):
+                mask = self.generate_square_subsequent_mask(len(src)).to(device)
+                self.src_mask = mask
+        else:
+            self.src_mask = None
+
         src = self.embedding_encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        output = self.transformer_decoder(tgt=src, memory=src, tgt_mask=src_mask)
+        output = self.transformer_decoder(tgt=src, memory=src, tgt_mask=self.src_mask)
         output = self.final_layer(output)
         return output
 

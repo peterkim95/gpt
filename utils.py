@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import torch
 
-def get_args():
+def get_args(print_args=True):
     parser = ArgumentParser()
 
     parser.add_argument('--ninp', type=int, default=200)
@@ -18,7 +18,14 @@ def get_args():
     parser.add_argument('--validation_steps', type=int, default=10)
     parser.add_argument('--lr', type=float, default=5.0)
 
+    parser.add_argument('--checkpoint', type=str)
+    parser.add_argument('--outf', type=str, default='generated.txt')
+    parser.add_argument('--temperature', type=float, default=1.0)
+    parser.add_argument('--words', type=int, default=30)
+
     args = parser.parse_args()
+    if print_args:
+        print(args)
     return args
 
 

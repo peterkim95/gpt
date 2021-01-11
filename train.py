@@ -59,9 +59,10 @@ def main():
             model.train()
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
-            if data.size(0) != args.sequence_length:
-                src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
-            output = model(data, src_mask)
+            # if data.size(0) != args.sequence_length:
+            #     src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
+            # output = model(data, src_mask)
+            output = model(data)
             loss = criterion(output.view(-1, ntokens), targets)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -92,9 +93,9 @@ def main():
                 with torch.no_grad():
                     for j, (data, targets) in enumerate(val_loader):
                         data, targets = data.to(device), targets.to(device)
-                        if data.size(0) != args.sequence_length:
-                            src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
-                        output = model(data, src_mask)
+                        # if data.size(0) != args.sequence_length:
+                        #     src_mask = model.generate_square_subsequent_mask(data.size(0)).to(device)
+                        output = model(data)
                         loss = criterion(output.view(-1, ntokens), targets)
                         total_loss += len(data) * loss.item()
 
@@ -114,7 +115,8 @@ def main():
                     print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
                     best_val_loss = val_loss
                     best_model = model
-                    torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
+                    # torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
+                    torch.save(best_model, f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
 
                 steps_taken = (epoch-1) * total_steps_in_dataset + i
                 writer.add_scalar('Loss/train', cur_loss, steps_taken)
