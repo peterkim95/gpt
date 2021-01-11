@@ -111,6 +111,7 @@ def main():
                 total_loss = 0.
 
                 if val_loss < best_val_loss:
+                    print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
                     best_val_loss = val_loss
                     best_model = model
                     torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
