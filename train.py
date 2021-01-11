@@ -1,7 +1,6 @@
 import time
 import math
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -12,9 +11,9 @@ from model import Transformer_Decoder
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
 
+
 def main():
     args = get_args()
-    print(args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
@@ -44,11 +43,15 @@ def main():
     epochs = args.epochs # The number of epochs
     best_model = None
 
+    total_steps_in_dataset = 0
+    total_steps_found = False
+    nbatches = 'Unk'
+
     for epoch in range(1, epochs + 1):
         epoch_start_time = time.time()
 
         # train
-        # model.train()
+        model.train()
         total_loss = 0.
         train_start_time = time.time()
         src_mask = model.generate_square_subsequent_mask(args.sequence_length).to(device)
@@ -66,17 +69,18 @@ def main():
 
             total_loss += loss.item()
             log_interval = args.log_interval
+
+            if not total_steps_found:
+                total_steps_in_dataset = i+1
+            else:
+                nbatches = total_steps_in_dataset
+
             if i % log_interval == 0 and i > 0:
                 cur_loss = total_loss / log_interval
                 cur_ppl = math.exp(cur_loss)
                 elapsed = time.time() - train_start_time
-                # TODO: use nbatches here if known
-                print('| epoch {:3d} | {:5d}/Unk batches | '
-                      'lr {:02.2f} | ms/batch {:5.2f} | '
-                      'loss {:5.2f} | ppl {:8.2f}'.format(
-                    epoch, i, scheduler.get_lr()[0],
-                    elapsed * 1000 / log_interval,
-                    cur_loss, cur_ppl))
+                print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches | lr {scheduler.get_lr()[0]:02.2f} '
+                      f'| ms/batch {elapsed * 1000 / log_interval:5.2f} | loss {cur_loss:5.2f} | ppl {cur_ppl:8.2f}')
                 total_loss = 0.
                 train_start_time = time.time()
 
@@ -100,9 +104,8 @@ def main():
                 val_loss = total_loss / args.validation_steps
                 val_ppl = math.exp(val_loss)
                 print('-' * 89)
-                # print('| end of epoch {:3d} | time: {:5.2f}s | val loss {:5.2f} | '
-                print('| epoch {:3d} | elapsed time: {:5.2f}s | val loss {:5.2f} | '
-                      'val ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time), val_loss, val_ppl))
+                print(f'| epoch {epoch:3d} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
+                      f'val loss {val_loss:5.2f} | val ppl {val_ppl:8.2f}')
                 print('-' * 89)
 
                 total_loss = 0.
@@ -110,14 +113,20 @@ def main():
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_model = model
-                    torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}.pt')
+                    torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
 
-                writer.add_scalar('Loss/train', cur_loss, i)
-                writer.add_scalar('Perplexity/train', cur_ppl, i)
-                writer.add_scalar('Loss/val', val_loss, i)
-                writer.add_scalar('Perplexity/val', val_ppl, i)
+                steps_taken = (epoch-1) * total_steps_in_dataset + i
+                writer.add_scalar('Loss/train', cur_loss, steps_taken)
+                writer.add_scalar('Perplexity/train', cur_ppl, steps_taken)
+                writer.add_scalar('Loss/val', val_loss, steps_taken)
+                writer.add_scalar('Perplexity/val', val_ppl, steps_taken)
 
+                # writer.flush()
+
+        # went through the entire dataset once
+        total_steps_found = True
         scheduler.step()
+
 
     print('training done')
 
