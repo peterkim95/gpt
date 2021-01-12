@@ -16,6 +16,9 @@ class BookCorpusIterableDataset(IterableDataset):
 
         self.dataset.set_format() # set get item return format into python object
 
+        self.total_steps_in_dataset = 0
+        self.total_steps_found = False
+
     def __iter__(self):
         token_stream = torch.LongTensor()
         total_batch_size = self.batch_size * (self.sequence_length + 1)
@@ -25,14 +28,18 @@ class BookCorpusIterableDataset(IterableDataset):
                 batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
                 batch = batch.view(self.batch_size, self.sequence_length + 1).t()
                 x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
-                yield x, y
 
+                if not self.total_steps_found:
+                    self.total_steps_in_dataset += 1
+                yield x, y
 
     def encode(self, example):
         # print(example)
         # print(torch.tensor([self.vocab[token] for token in self.tokenizer(example['text'])], dtype=torch.long))
         return torch.tensor([self.vocab[token] for token in self.tokenizer(example['text'])], dtype=torch.long)
 
+    def setTotalStepsFound(self, b):
+        self.total_steps_found = b
 
 def main():
     dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
