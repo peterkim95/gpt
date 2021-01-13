@@ -15,6 +15,7 @@ from dataset import BookCorpusIterableDataset
 def main():
     args = get_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'device: {device}')
 
     dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     train_dataset = dataset['train']
