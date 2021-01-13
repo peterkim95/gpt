@@ -88,13 +88,18 @@ def main():
                         loss = criterion(output.view(-1, ntokens), targets)
                         total_loss += len(data) * loss.item()
 
-                        if j + 1 == args.validation_steps:
-                            break
+                        # if j + 1 == args.validation_steps:
+                        #     break
+                        if j % 5000 == 0:
+                            print(j)
 
-                val_loss = total_loss / args.validation_steps
+                val_iterable.setTotalStepsFound(True)
+
+                # val_loss = total_loss / args.validation_steps
+                val_loss = total_loss / val_iterable.total_steps_in_dataset
                 val_ppl = math.exp(val_loss)
                 print('-' * 89)
-                print(f'| epoch {epoch:3d} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
+                print(f'| epoch {epoch:3d} | total val steps: {val_iterable.total_steps_in_dataset} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
                       f'val loss {val_loss:5.2f} | val ppl {val_ppl:8.2f}')
                 print('-' * 89)
 
