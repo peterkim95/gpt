@@ -89,15 +89,15 @@ def main():
                         loss = criterion(output.view(-1, ntokens), targets)
                         total_loss += len(data) * loss.item()
 
-                        # if j + 1 == args.validation_steps:
-                        #     break
-                        if j % 5000 == 0:
-                            print(j)
+                        if j + 1 == args.validation_steps:
+                            break
+                        # if j % 5000 == 0:
+                        #     print(j)
 
                 val_iterable.setTotalStepsFound(True)
 
-                # val_loss = total_loss / args.validation_steps
-                val_loss = total_loss / val_iterable.total_steps_in_dataset
+                val_loss = total_loss / args.validation_steps
+                # val_loss = total_loss / val_iterable.total_steps_in_dataset
                 val_ppl = math.exp(val_loss)
                 print('-' * 89)
                 print(f'| epoch {epoch:3d} | total val steps: {val_iterable.total_steps_in_dataset} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
