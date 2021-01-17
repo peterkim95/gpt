@@ -34,8 +34,9 @@ def main():
     model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.95)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000)
+    # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.warmup_steps)
 
     # Init tensorboard writer
     writer = SummaryWriter()
@@ -73,7 +74,8 @@ def main():
                 if train_iterable.total_steps_found:
                     nbatches = train_iterable.total_steps_in_dataset
 
-                print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches | lr {scheduler.get_lr()[0]:02.2f} '
+                # print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches | lr {scheduler.get_lr()[0]:02.2f} '
+                print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches '
                       f'| ms/batch {elapsed * 1000 / log_interval:5.2f} | loss {cur_loss:5.2f} | ppl {cur_ppl:8.2f}')
                 total_loss = 0.
                 train_start_time = time.time()
@@ -121,9 +123,10 @@ def main():
 
                 # writer.flush()
 
+                # scheduler.step()
+
         # went through the entire dataset once
         train_iterable.setTotalStepsFound(True)
-        scheduler.step()
 
 
     print('training done')

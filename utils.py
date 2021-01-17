@@ -16,7 +16,8 @@ def get_args(print_args=True):
     parser.add_argument('--sequence_length', type=int, default=35)
     parser.add_argument('--log_interval', type=int, default=10)
     parser.add_argument('--validation_steps', type=int, default=10)
-    parser.add_argument('--lr', type=float, default=5.0)
+    parser.add_argument('--lr', type=float, default=2.5e-4)
+    parser.add_argument('--warmup_steps', type=int, default=2000)
 
     parser.add_argument('--checkpoint', type=str)
     parser.add_argument('--outf', type=str, default='generated.txt')
