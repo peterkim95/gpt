@@ -23,13 +23,11 @@ def get_args(print_args=True):
     parser.add_argument('--outf', type=str, default='generated.txt')
     parser.add_argument('--temperature', type=float, default=1.0)
     parser.add_argument('--words', type=int, default=30)
-    parser.add_argument('--generate_log_interval', type=int, default=10)
 
     args = parser.parse_args()
     if print_args:
         print(args)
     return args
-
 
 def save_vocab(vocab, path):
     import pickle

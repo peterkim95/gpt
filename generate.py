@@ -1,4 +1,5 @@
 import torch
+from tqdm import trange
 
 from utils import get_args, load_vocab
 
@@ -19,7 +20,7 @@ def main():
 
     with open(args.outf, 'w+') as outf:
         with torch.no_grad():  # no tracking history
-            for i in range(args.words):
+            for i in trange(args.words):
                 output = model(input, has_mask=False)
                 # TODO: why move to cpu?
                 word_weights = output[-1].squeeze().div(args.temperature).exp().cpu()
@@ -31,8 +32,6 @@ def main():
 
                 outf.write(word + ('\n' if i % 20 == 19 else ' '))
 
-                if i % args.generate_log_interval == 0:
-                    print('| Generated {}/{} words'.format(i, args.words))
 
 if __name__ == '__main__':
     main()
