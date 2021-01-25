@@ -4,7 +4,8 @@ from utils import get_args, load_vocab
 
 def main():
     args = get_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'device: {device}')
 
     with open(args.checkpoint, 'rb') as f:
         model = torch.load(f).to(device)
@@ -30,8 +31,8 @@ def main():
 
                 outf.write(word + ('\n' if i % 20 == 19 else ' '))
 
-                if i % args.log_interval == 0:
+                if i % args.generate_log_interval == 0:
                     print('| Generated {}/{} words'.format(i, args.words))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
