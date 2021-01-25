@@ -41,6 +41,11 @@ class BookCorpusIterableDataset(IterableDataset):
     def setTotalStepsFound(self, b):
         self.total_steps_found = b
 
+def encode_raw_string(s):
+    vocab = load_vocab('bookcorpus-vocab-truncated.pkl')
+    tokenizer = get_tokenizer('basic_english')
+    return torch.tensor([vocab[token] for token in tokenizer(s)], dtype=torch.long)
+
 def main():
     dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     train_dataset = dataset['train']

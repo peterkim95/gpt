@@ -1,6 +1,7 @@
 import torch
 from tqdm import trange
 
+from dataset import encode_raw_string
 from utils import get_args, load_vocab
 
 def main():
@@ -16,9 +17,17 @@ def main():
     ntokens = len(vocab.stoi)
     print(f'{ntokens} tokens in vocab')
 
-    input = torch.randint(ntokens, (1, 1), dtype=torch.long).to(device)
+    if args.seed_string is None:
+        # choose random word
+        random_word_index = torch.randint(ntokens, size=(1,))[0].item()
+        seed_string = vocab.itos[random_word_index]
+    else:
+        seed_string = args.seed_string
+
+    input = torch.unsqueeze(encode_raw_string(seed_string), dim=1).to(device)
 
     with open(args.outf, 'w+') as outf:
+        outf.write(f'{seed_string}\n')
         with torch.no_grad():  # no tracking history
             for i in trange(args.words):
                 output = model(input, has_mask=False)

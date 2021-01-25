@@ -23,6 +23,7 @@ def get_args(print_args=True):
     parser.add_argument('--outf', type=str, default='generated.txt')
     parser.add_argument('--temperature', type=float, default=1.0)
     parser.add_argument('--words', type=int, default=30)
+    parser.add_argument('--seed_string', type=str)
 
     args = parser.parse_args()
     if print_args:
