@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.onnx
 
 import dataset
-from model import Transformer_Decoder
+from model import Transformer_Decoder, TransformerModel
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
@@ -104,7 +104,8 @@ ntokens = len(corpus.dictionary)
 # else:
 #     model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
-model = Transformer_Decoder(ntoken=ntokens, ninp=args.emsize, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
+# model = Transformer_Decoder(ntoken=ntokens, ninp=args.emsize, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
+model = TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 
 criterion = nn.CrossEntropyLoss()
 # criterion = nn.NLLLoss()
