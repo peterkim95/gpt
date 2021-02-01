@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from datasets import load_dataset
 
-from model import Transformer_Decoder
+from model import Transformer_Decoder, TransformerModel
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
 
@@ -31,7 +31,8 @@ def main():
     val_iterable = BookCorpusIterableDataset(val_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
     val_loader = DataLoader(val_iterable, batch_size=None)
 
-    model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
+    # model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
+    model = TransformerModel(ntokens, args.ninp, args.nhead, args.nhid, args.nlayers, 0.1).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
