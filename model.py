@@ -42,7 +42,7 @@ class Transformer_Decoder(nn.Module):
 
         src = self.embedding_encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        output = self.transformer_decoder(tgt=src, memory=src, tgt_mask=self.src_mask)
+        output = self.transformer_decoder(tgt=src, memory=src, tgt_mask=self.src_mask, memory_mask=self.src_mask)
         output = self.final_layer(output)
         return output
 
