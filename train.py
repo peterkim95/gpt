@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from datasets import load_dataset
 
+from parallel import DataParallelModel, DataParallelCriterion
 from model import Transformer_Decoder, TransformerModel
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
@@ -33,10 +34,11 @@ def main():
 
     # model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
     model = TransformerModel(ntokens, args.ninp, args.nhead, args.nhid, args.nlayers, 0.1)
-    model = nn.DataParallel(model)
+    model = DataParallelModel(model)
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
+    criterion = DataParallelCriterion(criterion)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000)
     # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.warmup_steps)
@@ -60,7 +62,9 @@ def main():
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             output = model(data)
-            loss = criterion(output.view(-1, ntokens), targets)
+            # loss = criterion(output.view(-1, ntokens), targets)
+            # when doing split loss computation for multi-gpu, output is a list!
+            loss = criterion(output, targets)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
