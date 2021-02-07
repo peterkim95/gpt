@@ -32,7 +32,9 @@ def main():
     val_loader = DataLoader(val_iterable, batch_size=None)
 
     # model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
-    model = TransformerModel(ntokens, args.ninp, args.nhead, args.nhid, args.nlayers, 0.1).to(device)
+    model = TransformerModel(ntokens, args.ninp, args.nhead, args.nhid, args.nlayers, 0.1)
+    model = nn.DataParallel(model)
+    model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
