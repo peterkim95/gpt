@@ -18,6 +18,7 @@ def get_args(print_args=True):
     parser.add_argument('--validation_steps', type=int, default=10)
     parser.add_argument('--lr', type=float, default=2.5e-4)
     parser.add_argument('--warmup_steps', type=int, default=2000)
+    parser.add_argument('--single_gpu', action='store_true')
 
     parser.add_argument('--checkpoint', type=str)
     parser.add_argument('--outf', type=str, default='generated.txt')

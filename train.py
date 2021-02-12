@@ -34,11 +34,14 @@ def main():
 
     # model = Transformer_Decoder(ntoken=ntokens, ninp=args.ninp, nhead=args.nhead, nhid=args.nhid, nlayers=args.nlayers).to(device)
     model = TransformerModel(ntokens, args.ninp, args.nhead, args.nhid, args.nlayers, 0.1)
-    model = DataParallelModel(model)
+    if not args.single_gpu:
+        model = DataParallelModel(model, dim=1)
+    # model = nn.DataParallel(model, dim=1) # the default pytorch one
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    criterion = DataParallelCriterion(criterion)
+    if not args.single_gpu:
+        criterion = DataParallelCriterion(criterion)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000)
     # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.warmup_steps)
@@ -47,7 +50,7 @@ def main():
     writer = SummaryWriter()
 
     best_val_loss = float("inf")
-    epochs = args.epochs # The number of epochs
+    epochs = args.epochs
     best_model = None
 
     for epoch in range(1, epochs + 1):
@@ -62,9 +65,17 @@ def main():
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             output = model(data)
-            # loss = criterion(output.view(-1, ntokens), targets)
-            # when doing split loss computation for multi-gpu, output is a list!
-            loss = criterion(output, targets)
+            
+            if args.single_gpu:
+                loss = criterion(output.view(-1, ntokens), targets)
+            else:
+                # flatten outputs
+                flattened_output = []
+                for o in output:
+                    flattened_output.append(o.view(-1, ntokens))
+                # when doing split loss computation for multi-gpu, output is a list!
+                loss = criterion(flattened_output, targets)
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
@@ -95,7 +106,17 @@ def main():
                     for j, (data, targets) in enumerate(val_loader):
                         data, targets = data.to(device), targets.to(device)
                         output = model(data)
-                        loss = criterion(output.view(-1, ntokens), targets)
+
+                        if args.single_gpu:
+                            loss = criterion(output.view(-1, ntokens), targets)
+                        else:
+                            # flatten outputs
+                            flattened_output = []
+                            for o in output:
+                                flattened_output.append(o.view(-1, ntokens))
+                            # when doing split loss computation for multi-gpu, output is a list!
+                            loss = criterion(flattened_output, targets)
+
                         total_loss += len(data) * loss.item()
 
                         if j + 1 == args.validation_steps:
