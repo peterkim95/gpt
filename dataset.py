@@ -69,6 +69,12 @@ class BookCorpusIterableDataset(IterableDataset):
         self.total_steps_found = False
 
     def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        # if worker_info is None:
+        #
+        # else: # in a worker process
+        #     # split workload
+
         token_stream = torch.LongTensor()
         total_batch_size = self.batch_size * (self.sequence_length + 1)
         for example in self.dataset:
