@@ -10,7 +10,7 @@ def main():
     print(f'device: {device}')
 
     with open(args.checkpoint, 'rb') as f:
-        model = torch.load(f).to(device)
+        model = torch.load(f).module.to(device)
     model.eval()
 
     vocab = load_vocab('bookcorpus-vocab-truncated.pkl')
@@ -24,18 +24,18 @@ def main():
     else:
         seed_string = args.seed_string
 
-    input = torch.unsqueeze(encode_raw_string(seed_string), dim=1).to(device)
+    x = torch.unsqueeze(encode_raw_string(seed_string), dim=1).to(device)
 
     with open(args.outf, 'w+') as outf:
         outf.write(f'{seed_string}\n')
         with torch.no_grad():  # no tracking history
             for i in trange(args.words):
-                output = model(input, has_mask=False)
+                output = model(x, has_mask=False)
                 # TODO: why move to cpu?
                 word_weights = output[-1].squeeze().div(args.temperature).exp().cpu()
                 word_idx = torch.multinomial(word_weights, 1)[0]
                 word_tensor = torch.Tensor([[word_idx]]).long().to(device)
-                input = torch.cat([input, word_tensor], 0)
+                x = torch.cat([x, word_tensor], 0)
 
                 word = vocab.itos[word_idx]
 
