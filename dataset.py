@@ -56,7 +56,7 @@ class Corpus(object):
 
 class BookCorpusIterableDataset(IterableDataset):
 
-    def __init__(self, dataset, vocab, batch_size, sequence_length):
+    def __init__(self, world_size, dataset, vocab, batch_size, sequence_length):
         self.dataset = dataset
         self.batch_size = batch_size
         self.sequence_length = sequence_length
@@ -68,29 +68,53 @@ class BookCorpusIterableDataset(IterableDataset):
         self.total_steps_in_dataset = 0
         self.total_steps_found = False
 
+        self.world_size = world_size
+
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        # if worker_info is None:
+        if worker_info is None:
+            token_stream = torch.LongTensor()
+            total_batch_size = self.batch_size * (self.sequence_length + 1)
+            for example in self.dataset:
+                token_stream = torch.cat([token_stream, self.encode(example)])
+                if token_stream.numel() >= total_batch_size:
+                    batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
+                    batch = batch.view(self.batch_size, self.sequence_length + 1).t()
+                    x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
+
+                    if not self.total_steps_found:
+                        self.total_steps_in_dataset += 1
+        else: # in a worker process
+            # split workload
+            worker_id = worker_info.id
+
+            token_stream = torch.LongTensor()
+            total_batch_size = self.batch_size * (self.sequence_length + 1)
+            for example in self.dataset.shard(num_shards=self.world_size, index=worker_id, contiguous=True):
+                token_stream = torch.cat([token_stream, self.encode(example)])
+                if token_stream.numel() >= total_batch_size:
+                    batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
+                    batch = batch.view(self.batch_size, self.sequence_length + 1).t()
+                    x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
+
+                    if not self.total_steps_found:
+                        self.total_steps_in_dataset += 1
+        yield x, y
+
+        # token_stream = torch.LongTensor()
+        # total_batch_size = self.batch_size * (self.sequence_length + 1)
+        # for example in self.dataset:
+        #     token_stream = torch.cat([token_stream, self.encode(example)])
+        #     if token_stream.numel() >= total_batch_size:
+        #         batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
+        #         batch = batch.view(self.batch_size, self.sequence_length + 1).t()
+        #         x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
         #
-        # else: # in a worker process
-        #     # split workload
-
-        token_stream = torch.LongTensor()
-        total_batch_size = self.batch_size * (self.sequence_length + 1)
-        for example in self.dataset:
-            token_stream = torch.cat([token_stream, self.encode(example)])
-            if token_stream.numel() >= total_batch_size:
-                batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
-                batch = batch.view(self.batch_size, self.sequence_length + 1).t()
-                x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
-
-                if not self.total_steps_found:
-                    self.total_steps_in_dataset += 1
-                yield x, y
+        #         if not self.total_steps_found:
+        #             self.total_steps_in_dataset += 1
+        #         yield x, y
 
     def encode(self, example):
-        # print(example)
-        # print(torch.tensor([self.vocab[token] for token in self.tokenizer(example['text'])], dtype=torch.long))
         return torch.tensor([self.vocab[token] for token in self.tokenizer(example['text'])], dtype=torch.long)
 
     def setTotalStepsFound(self, b):
@@ -102,6 +126,7 @@ def encode_raw_string(s):
     return torch.tensor([vocab[token] for token in tokenizer(s)], dtype=torch.long)
 
 def main():
+    # debug code for dataloader
     dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     train_dataset = dataset['train']
     val_dataset = dataset['test']

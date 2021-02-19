@@ -116,15 +116,15 @@ def main_worker(gpu, ngpus_per_node, args):
     # else:
     #     train_sampler = None
 
-    train_iterable_ds = BookCorpusIterableDataset(train_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_iterable_ds)
-    else:
-        train_sampler = None
-    train_loader = DataLoader(train_iterable_ds, batch_size=None, shuffle=(train_sampler is None),
-                              num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+    train_iterable_ds = BookCorpusIterableDataset(args.world_size, train_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
+    # if args.distributed:
+    #     train_sampler = torch.utils.data.distributed.DistributedSampler(train_iterable_ds)
+    # else:
+    #     train_sampler = None
+    train_loader = DataLoader(train_iterable_ds, batch_size=None,
+                              num_workers=args.workers, pin_memory=True)
 
-    val_iterable_ds = BookCorpusIterableDataset(val_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
+    val_iterable_ds = BookCorpusIterableDataset(args.world_size, val_dataset, vocab, batch_size=args.batch_size, sequence_length=args.sequence_length)
     val_loader = DataLoader(val_iterable_ds, batch_size=None, shuffle=False,
                             num_workers=args.workers, pin_memory=True)
 
@@ -136,8 +136,8 @@ def main_worker(gpu, ngpus_per_node, args):
     best_model = None
 
     for epoch in range(1, args.epochs + 1):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
+        # if args.distributed:
+        #     train_sampler.set_epoch(epoch)
         epoch_start_time = time.time()
 
         # train
@@ -201,7 +201,7 @@ def main_worker(gpu, ngpus_per_node, args):
                         # data, targets = data.to(device), targets.to(device)
                         output = model(data)
 
-                        loss = criterion(output.view(-1, ntokens), targets)
+                        loss = criterion(output.view(-1, args.ntokens), targets)
 
                         # if args.single_gpu:
                         #     loss = criterion(output.view(-1, ntokens), targets)
