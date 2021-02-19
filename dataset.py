@@ -84,6 +84,7 @@ class BookCorpusIterableDataset(IterableDataset):
 
                     if not self.total_steps_found:
                         self.total_steps_in_dataset += 1
+                    yield x, y
         else: # in a worker process
             # split workload
             worker_id = worker_info.id
@@ -99,7 +100,7 @@ class BookCorpusIterableDataset(IterableDataset):
 
                     if not self.total_steps_found:
                         self.total_steps_in_dataset += 1
-        yield x, y
+                    yield x, y
 
         # token_stream = torch.LongTensor()
         # total_batch_size = self.batch_size * (self.sequence_length + 1)
