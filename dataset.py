@@ -56,7 +56,7 @@ class Corpus(object):
 
 class BookCorpusIterableDataset(IterableDataset):
 
-    def __init__(self, world_size, dataset, vocab, batch_size, sequence_length):
+    def __init__(self, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length):
         self.dataset = dataset
         self.batch_size = batch_size
         self.sequence_length = sequence_length
@@ -68,7 +68,9 @@ class BookCorpusIterableDataset(IterableDataset):
         self.total_steps_in_dataset = 0
         self.total_steps_found = False
 
-        self.world_size = world_size
+        self.main_process_index = 0 if gpu_index is None else gpu_index
+        self.workers = num_workers
+        self.total_workers = num_workers * world_size
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -88,10 +90,10 @@ class BookCorpusIterableDataset(IterableDataset):
         else: # in a worker process
             # split workload
             worker_id = worker_info.id
-
+            worker_index = (self.workers * self.main_process_index) + worker_id
             token_stream = torch.LongTensor()
             total_batch_size = self.batch_size * (self.sequence_length + 1)
-            for example in self.dataset.shard(num_shards=self.world_size, index=worker_id, contiguous=True):
+            for example in self.dataset.shard(num_shards=self.total_workers, index=worker_index, contiguous=True):
                 token_stream = torch.cat([token_stream, self.encode(example)])
                 if token_stream.numel() >= total_batch_size:
                     batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]

@@ -21,7 +21,7 @@ def get_args(print_args=True):
 
     parser.add_argument('--single_gpu', action='store_true')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
+                        help='number of data loading workers per process (default: 4)')
     parser.add_argument('--world-size', default=-1, type=int,
                         help='number of nodes for distributed training')
     parser.add_argument('--rank', default=-1, type=int,
