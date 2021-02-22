@@ -119,14 +119,18 @@ def main_worker(gpu, ngpus_per_node, args):
                             num_workers=args.workers, pin_memory=True)
 
     # Init tensorboard writer
-    # writer = SummaryWriter()
+    epoch_writer = SummaryWriter()
 
     for epoch in range(1, args.epochs + 1):
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
         val_loss = validate(val_loader, model, criterion, args)
+
+        # write train/val losses per epoch
+        epoch_writer.add_scalar('Loss/train', train_loss, epoch)
+        epoch_writer.add_scalar('Loss/val', val_loss, epoch)
 
         # remember best val loss and save checkpoint
         is_best = val_loss < best_val_loss
@@ -141,104 +145,9 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
 
-
-    # for epoch in range(1, args.epochs + 1):
-    #     epoch_start_time = time.time()
-    #
-    #     # train
-    #     model.train()
-    #     total_loss = 0.
-    #     train_start_time = time.time()
-    #     for i, (data, targets) in enumerate(train_loader):
-    #         model.train()
-    #         if args.gpu is not None:
-    #             data = data.cuda(args.gpu, non_blocking=True)
-    #         if torch.cuda.is_available():
-    #             targets = targets.cuda(args.gpu, non_blocking=True)
-    #
-    #         output = model(data)
-    #         loss = criterion(output.view(-1, args.ntokens), targets)
-    #
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-    #         optimizer.step()
-    #
-    #         total_loss += loss.item()
-    #         log_interval = args.log_interval
-    #
-    #         if i % log_interval == 0 and i > 0:
-    #             cur_loss = total_loss / log_interval
-    #             cur_ppl = math.exp(cur_loss)
-    #             elapsed = time.time() - train_start_time
-    #
-    #             nbatches = 'Unk'
-    #             # if train_iterable.total_steps_found:
-    #             #     nbatches = train_iterable.total_steps_in_dataset
-    #
-    #             # print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches | lr {scheduler.get_lr()[0]:02.2f} '
-    #             print(f'| epoch {epoch:3d} | {i:5d}/{nbatches} batches '
-    #                   f'| ms/batch {elapsed * 1000 / log_interval:5.2f} | loss {cur_loss:5.2f} | ppl {cur_ppl:8.2f}')
-    #             train_start_time = time.time()
-    #
-    #
-    #             # validate
-    #             model.eval() # Turn on the evaluation mode
-    #             total_loss = 0.
-    #             with torch.no_grad():
-    #                 for j, (data, targets) in enumerate(val_loader):
-    #                     if args.gpu is not None:
-    #                         data = data.cuda(args.gpu, non_blocking=True)
-    #                     if torch.cuda.is_available():
-    #                         targets = targets.cuda(args.gpu, non_blocking=True)
-    #                     # data, targets = data.to(device), targets.to(device)
-    #                     output = model(data)
-    #
-    #                     loss = criterion(output.view(-1, args.ntokens), targets)
-    #
-    #                     total_loss += len(data) * loss.item()
-    #
-    #                     if j + 1 == args.validation_steps:
-    #                         break
-    #                     # if j % 5000 == 0:
-    #                     #     print(j)
-    #
-    #             # val_iterable.setTotalStepsFound(True)
-    #
-    #             val_loss = total_loss / args.validation_steps
-    #             # val_loss = total_loss / val_iterable.total_steps_in_dataset
-    #             val_ppl = math.exp(val_loss)
-    #             print('-' * 89)
-    #             # print(f'| epoch {epoch:3d} | total val steps: {val_iterable.total_steps_in_dataset} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
-    #             print(f'| epoch {epoch:3d} | total val steps: {123} | elapsed time: {time.time() - epoch_start_time:5.2f}s | '
-    #                   f'val loss {val_loss:5.2f} | val ppl {val_ppl:8.2f}')
-    #             print('-' * 89)
-    #
-    #             total_loss = 0.
-    #
-    #             if val_loss < best_val_loss:
-    #                 print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
-    #                 best_val_loss = val_loss
-    #                 best_model = model
-    #                 # torch.save(best_model.state_dict(), f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
-    #                 torch.save(best_model, f'checkpoints/net_epoch_{epoch}_step_{i}.pt')
-    #
-    #             # steps_taken = (epoch-1) * train_iterable.total_steps_in_dataset + i
-    #             # writer.add_scalar('Loss/train', cur_loss, steps_taken)
-    #             # writer.add_scalar('Perplexity/train', cur_ppl, steps_taken)
-    #             # writer.add_scalar('Loss/val', val_loss, steps_taken)
-    #             # writer.add_scalar('Perplexity/val', val_ppl, steps_taken)
-    #
-    #             # writer.flush()
-    #
-    #             # scheduler.step()
-    #
-    #     # went through the entire dataset once
-    #     # train_iterable.setTotalStepsFound(True)
-
     print('training done')
-    # writer.flush()
-    # writer.close()
+    epoch_writer.flush()
+    epoch_writer.close()
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -249,6 +158,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         9999, # TODO: len(train_loader)
         [batch_time, data_time, losses],
         prefix="Epoch: [{}]".format(epoch))
+
+    current_writer = SummaryWriter()
 
     model.train()
 
@@ -281,7 +192,12 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.log_interval == 0 and i > 0:
             progress.display(i)
+            current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
 
+    current_writer.flush()
+    current_writer.close()
+
+    return losses.avg
 
 def validate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -310,7 +226,7 @@ def validate(val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
+            if i % args.log_interval == 0 and i > 0:
                 progress.display(i)
 
     return losses.avg
