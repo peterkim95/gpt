@@ -46,6 +46,7 @@ def main():
 def main_worker(gpu, ngpus_per_node, args):
     global best_val_loss
     args.gpu = gpu
+    args.ngpus_per_node = ngpus_per_node
 
     if args.gpu is not None:
         print(f'Use GPU: {args.gpu} for training')
@@ -128,10 +129,6 @@ def main_worker(gpu, ngpus_per_node, args):
         # evaluate on validation set
         val_loss = validate(val_loader, model, criterion, args)
 
-        # write train/val losses per epoch
-        epoch_writer.add_scalar('Loss/train', train_loss, epoch)
-        epoch_writer.add_scalar('Loss/val', val_loss, epoch)
-
         # remember best val loss and save checkpoint
         is_best = val_loss < best_val_loss
         best_val_loss = min(val_loss, best_val_loss)
@@ -144,6 +141,10 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_val_loss': best_val_loss,
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
+
+            # write train/val losses per epoch
+            epoch_writer.add_scalar('Loss/train', train_loss, epoch)
+            epoch_writer.add_scalar('Loss/val', val_loss, epoch)
 
     print('training done')
     epoch_writer.flush()
@@ -192,7 +193,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.log_interval == 0 and i > 0:
             progress.display(i)
-            current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
+            if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                        and args.rank % args.ngpus_per_node == 0):
+                current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
 
     current_writer.flush()
     current_writer.close()
