@@ -120,7 +120,9 @@ def main_worker(gpu, ngpus_per_node, args):
                             num_workers=args.workers, pin_memory=True)
 
     # Init tensorboard writer
-    epoch_writer = SummaryWriter()
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        epoch_writer = SummaryWriter()
 
     for epoch in range(1, args.epochs + 1):
         # train for one epoch
@@ -143,12 +145,17 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best)
 
             # write train/val losses per epoch
-            epoch_writer.add_scalar('Loss/train', train_loss, epoch)
-            epoch_writer.add_scalar('Loss/val', val_loss, epoch)
+            if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                        and args.rank % args.ngpus_per_node == 0):
+                epoch_writer.add_scalar('Loss/train', train_loss, epoch)
+                epoch_writer.add_scalar('Loss/val', val_loss, epoch)
 
     print('training done')
-    epoch_writer.flush()
-    epoch_writer.close()
+
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        epoch_writer.flush()
+        epoch_writer.close()
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -160,7 +167,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         [batch_time, data_time, losses],
         prefix="Epoch: [{}]".format(epoch))
 
-    current_writer = SummaryWriter()
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        current_writer = SummaryWriter()
 
     model.train()
 
@@ -197,8 +206,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
                                                         and args.rank % args.ngpus_per_node == 0):
                 current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
 
-    current_writer.flush()
-    current_writer.close()
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        current_writer.flush()
+        current_writer.close()
 
     return losses.avg
 

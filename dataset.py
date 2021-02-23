@@ -104,29 +104,18 @@ class BookCorpusIterableDataset(IterableDataset):
                         self.total_steps_in_dataset += 1
                     yield x, y
 
-        # token_stream = torch.LongTensor()
-        # total_batch_size = self.batch_size * (self.sequence_length + 1)
-        # for example in self.dataset:
-        #     token_stream = torch.cat([token_stream, self.encode(example)])
-        #     if token_stream.numel() >= total_batch_size:
-        #         batch, token_stream = token_stream[:total_batch_size], token_stream[total_batch_size:]
-        #         batch = batch.view(self.batch_size, self.sequence_length + 1).t()
-        #         x, y = batch[:self.sequence_length, :], batch[1:, :].reshape(-1)
-        #
-        #         if not self.total_steps_found:
-        #             self.total_steps_in_dataset += 1
-        #         yield x, y
-
     def encode(self, example):
         return torch.tensor([self.vocab[token] for token in self.tokenizer(example['text'])], dtype=torch.long)
 
     def setTotalStepsFound(self, b):
         self.total_steps_found = b
 
+
 def encode_raw_string(s):
     vocab = load_vocab('bookcorpus-vocab-truncated.pkl')
     tokenizer = get_tokenizer('basic_english')
     return torch.tensor([vocab[token] for token in tokenizer(s)], dtype=torch.long)
+
 
 def main():
     # debug code for dataloader
