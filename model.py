@@ -12,7 +12,7 @@ class Transformer_Decoder(nn.Module):
         self.model_type = 'Transformer-Decoder (T-D)'
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
-        decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
+        decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout, 'gelu')
         self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers)
         self.embedding_encoder = nn.Embedding(ntoken, ninp)
         self.ninp = ninp
