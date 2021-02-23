@@ -145,10 +145,8 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best)
 
             # write train/val losses per epoch
-            if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                        and args.rank % args.ngpus_per_node == 0):
-                epoch_writer.add_scalar('Loss/train', train_loss, epoch)
-                epoch_writer.add_scalar('Loss/val', val_loss, epoch)
+            epoch_writer.add_scalar('Loss/train', train_loss, epoch)
+            epoch_writer.add_scalar('Loss/val', val_loss, epoch)
 
     print('training done')
 
@@ -204,6 +202,12 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             progress.display(i)
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                         and args.rank % args.ngpus_per_node == 0):
+                save_checkpoint({
+                    'epoch': epoch,
+                    'step': i,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                }, False)
                 current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
 
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
