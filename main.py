@@ -1,7 +1,6 @@
 import shutil
 import os
 import time
-import math
 
 import torch
 import torch.nn as nn
@@ -12,7 +11,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 from datasets import load_dataset
 
-from model import Transformer_Decoder, TransformerModel
+from model import Transformer_Decoder
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
 
@@ -20,6 +19,13 @@ best_val_loss = float("inf")
 
 def main():
     args = get_args()
+
+    if args.og: # og GPT BERT config
+        print('using GPT BERT settings, this will be huge')
+        args.ninp = 768
+        args.nhead = 12
+        args.nhid = 3072
+        args.nlayers = 12
 
     vocab = load_vocab('bookcorpus-vocab-truncated.pkl')
     args.ntokens = len(vocab.stoi)

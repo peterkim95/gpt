@@ -19,6 +19,8 @@ def get_args(print_args=True):
     parser.add_argument('--lr', type=float, default=2.5e-4)
     parser.add_argument('--warmup_steps', type=int, default=2000)
 
+    parser.add_argument('--og', action='store_true')
+
     parser.add_argument('--single_gpu', action='store_true')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers per process (default: 4)')
