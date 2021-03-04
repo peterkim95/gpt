@@ -14,7 +14,6 @@ from datasets import load_dataset
 from model import Transformer_Decoder
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
-from pytorch_modelsize import SizeEstimator
 
 best_val_loss = float("inf")
 
