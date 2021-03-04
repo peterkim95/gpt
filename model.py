@@ -1,19 +1,76 @@
 import math
+import copy
+
 import torch
 import torch.nn as nn
 from torch.nn import TransformerDecoder, TransformerDecoderLayer, TransformerEncoder, TransformerEncoderLayer
 import torch.nn.functional as F
 
+# TODO: Generalize. Assume num_gpus = 4, and num_layers = 12
+class ModelParallelTransformerDecoder(TransformerDecoder):
+    def __init__(self, num_gpus, decoder_layer, num_layers, norm=None):
+        super(ModelParallelTransformerDecoder, self).__init__()
+        mlist = [
+            copy.deepcopy(decoder_layer).to('cuda:0'),
+            copy.deepcopy(decoder_layer).to('cuda:0'),
+            copy.deepcopy(decoder_layer).to('cuda:0'),
+
+            copy.deepcopy(decoder_layer).to('cuda:1'),
+            copy.deepcopy(decoder_layer).to('cuda:1'),
+            copy.deepcopy(decoder_layer).to('cuda:1'),
+
+            copy.deepcopy(decoder_layer).to('cuda:2'),
+            copy.deepcopy(decoder_layer).to('cuda:2'),
+            copy.deepcopy(decoder_layer).to('cuda:2'),
+
+            copy.deepcopy(decoder_layer).to('cuda:3'),
+            copy.deepcopy(decoder_layer).to('cuda:3'),
+            copy.deepcopy(decoder_layer).to('cuda:3'),
+        ]
+        self.layers = nn.ModuleList(mlist)
+
+        self.num_layers = num_layers
+        self.norm = norm
+
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, tgt_key_padding_mask=None, memory_key_padding_mask=None):
+        output = tgt
+
+        # output.to('cuda:0')
+        # memory.to('cuda:0')
+        # tgt_mask.to('cuda:0')
+        # memory_mask.to('cuda:0')
+
+        gpu_assignment = ['cuda:0', 'cuda:0', 'cuda:0', 'cuda:1', 'cuda:1', 'cuda:1', 'cuda:2', 'cuda:2', 'cuda:2', 'cuda:3', 'cuda:3', 'cuda:3']
+
+        for mod, gpu in zip(self.layers, gpu_assignment):
+            output.to(gpu)
+            memory.to(gpu)
+            tgt_mask.to(gpu)
+            memory_mask.to(gpu)
+
+            output = mod(output, memory, tgt_mask=tgt_mask,
+                         memory_mask=memory_mask,
+                         tgt_key_padding_mask=tgt_key_padding_mask,
+                         memory_key_padding_mask=memory_key_padding_mask)
+            output.to(gpu)
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
 
 class Transformer_Decoder(nn.Module):
 
-    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.1):
+    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.1, model_parallel=False):
         super(Transformer_Decoder, self).__init__()
         self.model_type = 'Transformer-Decoder (T-D)'
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
-        decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout, 'gelu')
-        self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers)
+        decoder_layer = TransformerDecoderLayer(ninp, nhead, nhid, dropout, 'gelu')
+        if model_parallel:
+            self.transformer_decoder = ModelParallelTransformerDecoder(decoder_layer, nlayers)
+        else:
+            self.transformer_decoder = TransformerDecoder(decoder_layer, nlayers)
         self.embedding_encoder = nn.Embedding(ntoken, ninp)
         self.ninp = ninp
         self.final_layer = nn.Linear(ninp, ntoken)

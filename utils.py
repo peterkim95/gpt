@@ -20,6 +20,7 @@ def get_args(print_args=True):
     parser.add_argument('--warmup_steps', type=int, default=2000)
 
     parser.add_argument('--og', action='store_true')
+    parser.add_argument('--model_parallel', action='store_true')
 
     parser.add_argument('--single_gpu', action='store_true')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',

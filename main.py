@@ -14,6 +14,7 @@ from datasets import load_dataset
 from model import Transformer_Decoder
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
+from pytorch_modelsize import SizeEstimator
 
 best_val_loss = float("inf")
 
@@ -68,7 +69,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
 
     model = Transformer_Decoder(ntoken=args.ntokens, ninp=args.ninp, nhead=args.nhead,
-                                nhid=args.nhid, nlayers=args.nlayers)
+                                nhid=args.nhid, nlayers=args.nlayers, model_parallel=args.model_parallel)
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
@@ -189,6 +190,11 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # compute output and loss
         output = model(data)
+
+        # TODO: multi gpu and model parallel stuff
+        if args.model_parallel:
+            targets.to('cuda:3')
+
         loss = criterion(output.view(-1, args.ntokens), targets)
 
         # record loss
@@ -197,7 +203,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # compute gradient and do SGD update
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5) # TODO: necessary?
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5) # TODO: necessary?
         optimizer.step()
 
         # measure elapsed time
