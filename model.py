@@ -8,8 +8,8 @@ import torch.nn.functional as F
 
 # TODO: Generalize. Assume num_gpus = 4, and num_layers = 12
 class ModelParallelTransformerDecoder(TransformerDecoder):
-    def __init__(self, num_gpus, decoder_layer, num_layers, norm=None):
-        super(ModelParallelTransformerDecoder, self).__init__()
+    def __init__(self, decoder_layer, num_layers, norm=None):
+        super(ModelParallelTransformerDecoder, self).__init__(decoder_layer, num_layers)
         mlist = [
             copy.deepcopy(decoder_layer).to('cuda:0'),
             copy.deepcopy(decoder_layer).to('cuda:0'),
