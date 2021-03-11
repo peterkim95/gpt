@@ -250,6 +250,7 @@ def validate(val_loader, model, criterion, epoch, args):
     model.eval()
 
     with torch.no_grad():
+        end = time.time()
         for i, (data, targets) in enumerate(val_loader):
             if args.gpu is not None:
                 data = data.cuda(args.gpu, non_blocking=True)
