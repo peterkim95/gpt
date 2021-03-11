@@ -108,7 +108,11 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code goes here
-    dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
+    if args.use_smaller_dataset:
+        print('using smaller dataset')
+        dataset = load_dataset("bookcorpus", split='train[:1%]').train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
+    else:
+        dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     train_dataset = dataset['train']
     val_dataset = dataset['test']
     print('train val split done')
@@ -135,7 +139,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_loss = train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
-        val_loss = validate(val_loader, model, criterion, args)
+        val_loss = validate(val_loader, model, criterion, epoch, args)
 
         # remember best val loss and save checkpoint
         is_best = val_loss < best_val_loss
@@ -154,12 +158,13 @@ def main_worker(gpu, ngpus_per_node, args):
             epoch_writer.add_scalar('Loss/train', train_loss, epoch)
             epoch_writer.add_scalar('Loss/val', val_loss, epoch)
 
-    print('training done')
-
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                 and args.rank % args.ngpus_per_node == 0):
         epoch_writer.flush()
         epoch_writer.close()
+
+    print('training done')
+
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -228,7 +233,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
     return losses.avg
 
-def validate(val_loader, model, criterion, args):
+
+def validate(val_loader, model, criterion, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     progress = ProgressMeter(
@@ -236,6 +242,10 @@ def validate(val_loader, model, criterion, args):
         9999,
         [batch_time, losses],
         prefix='Test: ')
+
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        current_writer = SummaryWriter()
 
     model.eval()
 
@@ -257,6 +267,14 @@ def validate(val_loader, model, criterion, args):
 
             if i % args.log_interval == 0 and i > 0:
                 progress.display(i)
+                if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                            and args.rank % args.ngpus_per_node == 0):
+                    current_writer.add_scalar(f'Val Loss after epoch={epoch}', losses.avg, i)
+
+    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                                                and args.rank % args.ngpus_per_node == 0):
+        current_writer.flush()
+        current_writer.close()
 
     return losses.avg
 
