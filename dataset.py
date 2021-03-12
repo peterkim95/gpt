@@ -56,7 +56,8 @@ class Corpus(object):
 
 class BookCorpusIterableDataset(IterableDataset):
 
-    def __init__(self, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length):
+    def __init__(self, metadata, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length):
+        self.metadata = metadata
         self.dataset = dataset
         self.batch_size = batch_size
         self.sequence_length = sequence_length
@@ -71,6 +72,7 @@ class BookCorpusIterableDataset(IterableDataset):
         self.main_process_index = 0 if gpu_index is None else gpu_index
         self.workers = num_workers
         self.total_workers = num_workers * world_size
+        self.gpu_index = gpu_index
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -93,6 +95,9 @@ class BookCorpusIterableDataset(IterableDataset):
             worker_index = (self.workers * self.main_process_index) + worker_id
             token_stream = torch.LongTensor()
             total_batch_size = self.batch_size * (self.sequence_length + 1)
+            
+            print(f'{self.gpu_index}: {self.metadata} starting worker {worker_index}')
+
             for example in self.dataset.shard(num_shards=self.total_workers, index=worker_index, contiguous=True):
                 token_stream = torch.cat([token_stream, self.encode(example)])
                 if token_stream.numel() >= total_batch_size:

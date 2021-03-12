@@ -55,7 +55,7 @@ def main_worker(gpu, ngpus_per_node, args):
     args.ngpus_per_node = ngpus_per_node
 
     if args.gpu is not None:
-        print(f'Use GPU: {args.gpu} for training')
+        log(f'Use GPU: {args.gpu} for training', gpu)
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
@@ -109,22 +109,22 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code goes here
     if args.use_smaller_dataset:
-        print('using smaller dataset')
-        dataset = load_dataset("bookcorpus", split='train[:1%]').train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
+        log('using smaller dataset', gpu)
+        dataset = load_dataset("bookcorpus", split='train[:10000]').train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     else:
         dataset = load_dataset("bookcorpus")['train'].train_test_split(train_size=0.8, test_size=0.2, shuffle=False, seed=42)
     train_dataset = dataset['train']
     val_dataset = dataset['test']
-    print('train val split done')
+    log('train val split done', gpu)
 
     vocab = load_vocab('bookcorpus-vocab-truncated.pkl')
 
-    train_iterable_ds = BookCorpusIterableDataset(args.gpu, args.world_size, args.workers, train_dataset, vocab,
+    train_iterable_ds = BookCorpusIterableDataset('train', args.gpu, args.world_size, args.workers, train_dataset, vocab,
                                                   batch_size=args.batch_size, sequence_length=args.sequence_length)
-    train_loader = DataLoader(train_iterable_ds, batch_size=None,
+    train_loader = DataLoader(train_iterable_ds, batch_size=None, shuffle=False,
                               num_workers=args.workers, pin_memory=True)
 
-    val_iterable_ds = BookCorpusIterableDataset(args.gpu, args.world_size, args.workers, val_dataset, vocab,
+    val_iterable_ds = BookCorpusIterableDataset('val', args.gpu, args.world_size, args.workers, val_dataset, vocab,
                                                 batch_size=args.batch_size, sequence_length=args.sequence_length)
     val_loader = DataLoader(val_iterable_ds, batch_size=None, shuffle=False,
                             num_workers=args.workers, pin_memory=True)
@@ -138,10 +138,10 @@ def main_worker(gpu, ngpus_per_node, args):
 
     for epoch in range(1, args.epochs + 1):
         # train for one epoch
-        train_loss = train(train_loader, model, criterion, optimizer, epoch, args, writer)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, args, writer, gpu)
 
         # evaluate on validation set
-        val_loss = validate(val_loader, model, criterion, epoch, args, writer)
+        val_loss = validate(val_loader, model, criterion, epoch, args, writer, gpu)
 
         # remember best val loss and save checkpoint
         is_best = val_loss < best_val_loss
@@ -165,10 +165,10 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.flush()
         writer.close()
 
-    print('training done')
+    log('training done', gpu)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args, writer):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer, gpu):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -176,7 +176,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     progress = ProgressMeter(
         9999, # TODO: len(train_loader)
         [batch_time, data_time, losses],
-        prefix="Epoch: [{}]".format(epoch))
+        prefix="Epoch: [{}]".format(epoch),
+        index=gpu,
+    )
 
     model.train()
 
@@ -227,14 +229,16 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     return losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, args, writer):
+def validate(val_loader, model, criterion, epoch, args, writer, gpu):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     progress = ProgressMeter(
         # len(val_loader),
         9999,
         [batch_time, losses],
-        prefix='Validate: ')
+        prefix=f'Validate: [{epoch}]',
+        index=gpu
+    )
 
     model.eval()
     with torch.no_grad():
@@ -258,21 +262,22 @@ def validate(val_loader, model, criterion, epoch, args, writer):
                 progress.display(i)
                 if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                             and args.rank % args.ngpus_per_node == 0):
-                    writer.add_scalar(f'Val Loss after epoch={epoch}', losses.avg, i)
+                    writer.add_scalar(f'Val Loss/epoch={epoch}', losses.avg, i)
 
     return losses.avg
 
 
 class ProgressMeter(object):
-    def __init__(self, num_batches, meters, prefix=""):
+    def __init__(self, num_batches, meters, prefix, index):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
         self.prefix = prefix
+        self.index = index
 
     def display(self, batch):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
-        print('\t'.join(entries))
+        log('\t'.join(entries), self.index)
 
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
@@ -303,6 +308,9 @@ class AverageMeter(object):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
 
+
+def log(msg, index):
+    print(f'{index}: {msg}')
 
 def save_checkpoint(state, is_best, filename='checkpoints/checkpoint.pth.tar'):
     torch.save(state, filename)
