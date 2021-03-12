@@ -132,14 +132,16 @@ def main_worker(gpu, ngpus_per_node, args):
     # Init tensorboard writer
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                 and args.rank % args.ngpus_per_node == 0):
-        epoch_writer = SummaryWriter()
+        writer = SummaryWriter()
+    else:
+        writer = None
 
     for epoch in range(1, args.epochs + 1):
         # train for one epoch
-        train_loss = train(train_loader, model, criterion, optimizer, epoch, args)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, args, writer)
 
         # evaluate on validation set
-        val_loss = validate(val_loader, model, criterion, epoch, args)
+        val_loss = validate(val_loader, model, criterion, epoch, args, writer)
 
         # remember best val loss and save checkpoint
         is_best = val_loss < best_val_loss
@@ -155,18 +157,18 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best)
 
             # write train/val losses per epoch
-            epoch_writer.add_scalar('Loss/train', train_loss, epoch)
-            epoch_writer.add_scalar('Loss/val', val_loss, epoch)
+            writer.add_scalar('Loss/train', train_loss, epoch)
+            writer.add_scalar('Loss/val', val_loss, epoch)
 
     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                 and args.rank % args.ngpus_per_node == 0):
-        epoch_writer.flush()
-        epoch_writer.close()
+        writer.flush()
+        writer.close()
 
     print('training done')
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -175,10 +177,6 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         9999, # TODO: len(train_loader)
         [batch_time, data_time, losses],
         prefix="Epoch: [{}]".format(epoch))
-
-    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                and args.rank % args.ngpus_per_node == 0):
-        current_writer = SummaryWriter()
 
     model.train()
 
@@ -224,31 +222,21 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
                     'state_dict': model.state_dict(),
                     'optimizer' : optimizer.state_dict(),
                 }, False)
-                current_writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
-
-    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                and args.rank % args.ngpus_per_node == 0):
-        current_writer.flush()
-        current_writer.close()
+                writer.add_scalar(f'Loss/epoch={epoch}', losses.avg, i)
 
     return losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, args):
+def validate(val_loader, model, criterion, epoch, args, writer):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     progress = ProgressMeter(
         # len(val_loader),
         9999,
         [batch_time, losses],
-        prefix='Test: ')
-
-    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                and args.rank % args.ngpus_per_node == 0):
-        current_writer = SummaryWriter()
+        prefix='Validate: ')
 
     model.eval()
-
     with torch.no_grad():
         end = time.time()
         for i, (data, targets) in enumerate(val_loader):
@@ -270,12 +258,7 @@ def validate(val_loader, model, criterion, epoch, args):
                 progress.display(i)
                 if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                             and args.rank % args.ngpus_per_node == 0):
-                    current_writer.add_scalar(f'Val Loss after epoch={epoch}', losses.avg, i)
-
-    if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                                                and args.rank % args.ngpus_per_node == 0):
-        current_writer.flush()
-        current_writer.close()
+                    writer.add_scalar(f'Val Loss after epoch={epoch}', losses.avg, i)
 
     return losses.avg
 
