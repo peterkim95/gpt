@@ -15,6 +15,7 @@ from model import Transformer_Decoder
 from utils import load_vocab, get_args
 from dataset import BookCorpusIterableDataset
 
+
 best_val_loss = float("inf")
 
 def main():
@@ -187,6 +188,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer, gpu):
         # measure data loading time
         data_time.update(time.time() - end)
 
+        assert data.size(1) == args.batch_size # ensure drop_last is working
+
         if args.gpu is not None:
             data = data.cuda(args.gpu, non_blocking=True)
         if torch.cuda.is_available():
@@ -244,6 +247,8 @@ def validate(val_loader, model, criterion, epoch, args, writer, gpu):
     with torch.no_grad():
         end = time.time()
         for i, (data, targets) in enumerate(val_loader):
+            assert data.size(1) == args.batch_size # ensure drop_last is working
+
             if args.gpu is not None:
                 data = data.cuda(args.gpu, non_blocking=True)
             if torch.cuda.is_available():
@@ -311,6 +316,7 @@ class AverageMeter(object):
 
 def log(msg, index):
     print(f'{index}: {msg}')
+
 
 def save_checkpoint(state, is_best, filename='checkpoints/checkpoint.pth.tar'):
     torch.save(state, filename)

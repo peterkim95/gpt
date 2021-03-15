@@ -56,7 +56,7 @@ class Corpus(object):
 
 class BookCorpusIterableDataset(IterableDataset):
 
-    def __init__(self, metadata, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length):
+    def __init__(self, metadata, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length, steps_limit=1000):
         self.metadata = metadata
         self.dataset = dataset
         self.batch_size = batch_size
@@ -73,6 +73,7 @@ class BookCorpusIterableDataset(IterableDataset):
         self.workers = num_workers
         self.total_workers = num_workers * world_size
         self.gpu_index = gpu_index
+        self.steps_limit = steps_limit
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -88,6 +89,8 @@ class BookCorpusIterableDataset(IterableDataset):
 
                     if not self.total_steps_found:
                         self.total_steps_in_dataset += 1
+                        if self.total_steps_in_dataset >= self.steps_limit:
+                            break
                     yield x, y
         else: # in a worker process
             # split workload
