@@ -56,7 +56,7 @@ class Corpus(object):
 
 class BookCorpusIterableDataset(IterableDataset):
 
-    def __init__(self, metadata, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length, steps_limit=1000):
+    def __init__(self, metadata, gpu_index, world_size, num_workers, dataset, vocab, batch_size, sequence_length, steps_limit=100):
         self.metadata = metadata
         self.dataset = dataset
         self.batch_size = batch_size
@@ -89,9 +89,8 @@ class BookCorpusIterableDataset(IterableDataset):
 
                     if not self.total_steps_found:
                         self.total_steps_in_dataset += 1
-                        if self.total_steps_in_dataset >= self.steps_limit:
-                            break
                     yield x, y
+
         else: # in a worker process
             # split workload
             worker_id = worker_info.id
@@ -110,6 +109,10 @@ class BookCorpusIterableDataset(IterableDataset):
 
                     if not self.total_steps_found:
                         self.total_steps_in_dataset += 1
+                        # print(f'p={self.gpu_index}, w={worker_index}: {self.steps_limit}, {self.total_steps_in_dataset}')
+                        if self.total_steps_in_dataset >= self.steps_limit:
+                            # print(f'{self.gpu_index}: breaking')
+                            break
                     yield x, y
 
     def encode(self, example):
